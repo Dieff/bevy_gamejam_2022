@@ -1,0 +1,12 @@
+[package]
+name = "bevy_gamejam_2022"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = {version = "0.6"}
+bevy_egui = "0.11.0"
+bevy_ecs_tilemap = "0.5"
+bevy_ecs_ldtk = { version = "0.2", features = ["atlas"]}
