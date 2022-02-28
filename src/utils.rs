@@ -1,4 +1,4 @@
-use bevy::prelude::Vec3;
+use bevy::prelude::*;
 use bevy_ecs_tilemap::{TilePos, TileSize};
 
 pub fn pad_string_right(victim: &mut String, count: usize) {
@@ -23,4 +23,19 @@ pub fn initial_map_drawing_position(tile_size: &TileSize, tile_pos: &TilePos) ->
     (thy / 2.) + (tile_pos.1 as f32 * thy),
     10.,
   )
+}
+
+pub fn new_square_sprite_bundle(color: Color, size: Vec2, pos: Vec3) -> SpriteBundle {
+  SpriteBundle {
+    sprite: Sprite {
+      color,
+      ..Default::default()
+    },
+    transform: Transform {
+      scale: Vec3::new(size.x, size.y, 0.),
+      translation: pos,
+      ..Default::default()
+    },
+    ..Default::default()
+  }
 }

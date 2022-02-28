@@ -5,6 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# The bevy dependency will always be built in release mode
+# so that the game runs with good fps even in testing.
+[profile.dev.package.bevy]
+opt-level = 3
+
 [dependencies]
 bevy = {version = "0.6"}
 bevy_egui = "0.11.0"
