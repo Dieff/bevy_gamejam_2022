@@ -4,14 +4,16 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy_ecs_tilemap::{TileParent, TilePos};
 
 use super::MainCamera;
-use crate::ui::UIBlocks;
+use crate::constants;
+//use crate::ingame_ui::{UIBlocks, BlockKeyInput};
+use crate::ingame_ui::PointerStatus;
 use crate::utils::initial_map_drawing_position;
 
 /// For things that will be drawn on a top map tile
 /// Probably paired with TilePos and TileParent
 /// Does not exist on the actual map
 #[derive(Component, Default)]
-pub struct OnMap;
+pub struct DrawOnMap;
 
 /// Marker component for tiles with players or enemies on them
 #[derive(Component, Default)]
@@ -26,7 +28,7 @@ pub struct SelectedTile;
 #[derive(Bundle)]
 pub struct HoveredTileBundle {
   tile: HoveredTile,
-  map: OnMap,
+  map: DrawOnMap,
   map_pos: TilePos,
   parent: TileParent,
   #[bundle]
@@ -36,17 +38,45 @@ pub struct HoveredTileBundle {
 #[derive(Bundle)]
 pub struct SelectedTileBundle {
   tile: SelectedTile,
-  map: OnMap,
+  map: DrawOnMap,
   map_pos: TilePos,
   parent: TileParent,
   #[bundle]
   sprite_bundle: SpriteBundle,
 }
 
+/// used for pathfinding
+#[derive(Debug, PartialEq)]
+pub enum TileKind {
+  Floor,
+  Open,
+  Wall,
+}
+
+impl Default for TileKind {
+  fn default() -> Self {
+    TileKind::Floor
+  }
+}
+
 /// A marking component for tiles on the IntGrid layer
 /// that has tile data
 #[derive(Debug, Component, Default)]
-pub struct DataLayer;
+pub struct DataLayer {
+  pub kind: TileKind,
+}
+
+impl From<IntGridCell> for DataLayer {
+  fn from(igc: IntGridCell) -> Self {
+    let kind = match igc.value {
+      1 => TileKind::Open,
+      2 => TileKind::Wall,
+      3 => TileKind::Floor,
+      _ => TileKind::Floor,
+    };
+    Self { kind }
+  }
+}
 
 #[derive(Component, Default)]
 pub struct Open;
@@ -87,7 +117,7 @@ struct FloorTileBundle {
 
 // allows components to be drawn on the map
 pub fn mapped_component(
-  mut comps: Query<(&mut Transform, &TilePos, &TileParent), (With<OnMap>, Changed<TilePos>)>,
+  mut comps: Query<(&mut Transform, &TilePos, &TileParent), (With<DrawOnMap>, Changed<TilePos>)>,
   mut map: bevy_ecs_tilemap::MapQuery,
 ) {
   for (mut transform, position, parent) in comps.iter_mut() {
@@ -105,15 +135,18 @@ pub fn mapped_component(
 pub fn tile_mouse_hover(
   mut commands: Commands,
   windows: Res<Windows>,
-  ui_blocks: Res<UIBlocks>,
+  ui_blocks: Res<PointerStatus>,
   q_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-  tiles: Query<(Entity, &TilePos, &TileParent), (With<DataLayer>, Without<OnMap>)>,
-  mut selected: Query<(Entity, &mut TilePos, &mut TileParent), (With<OnMap>, With<HoveredTile>)>,
+  tiles: Query<(Entity, &TilePos, &TileParent), (With<DataLayer>, Without<DrawOnMap>)>,
+  mut selected: Query<
+    (Entity, &mut TilePos, &mut TileParent),
+    (With<DrawOnMap>, With<HoveredTile>),
+  >,
   mut map: bevy_ecs_tilemap::MapQuery,
 ) {
   let window = windows.get_primary().unwrap();
   if let Some(mouse_position) = window.cursor_position() {
-    if ui_blocks.is_blocked(mouse_position) {
+    if ui_blocks.disregard_mouse_event() {
       return;
     }
     // Convert screen coordinates into world coordinates
@@ -174,7 +207,7 @@ pub fn tile_mouse_hover(
           .unwrap();
         commands.spawn_bundle(HoveredTileBundle {
           tile: HoveredTile,
-          map: OnMap,
+          map: DrawOnMap,
           map_pos: new_pos,
           parent: new_parent,
           sprite_bundle: SpriteBundle {
@@ -184,7 +217,11 @@ pub fn tile_mouse_hover(
             },
             transform: Transform {
               scale: Vec3::new(layer.settings.tile_size.0, layer.settings.tile_size.1, 0.),
-              translation: initial_map_drawing_position(&layer.settings.tile_size, &new_pos),
+              translation: initial_map_drawing_position(
+                &layer.settings.tile_size,
+                &new_pos,
+                constants::MAP_UI_Z_LEVEL,
+              ),
               ..Default::default()
             },
             ..Default::default()
@@ -204,19 +241,21 @@ pub fn tile_mouse_hover(
   }
 }
 
-pub fn select_tile(
+pub struct TileSelectedEvent(pub Option<TilePos>);
+
+pub fn click_tile(
   mut commands: Commands,
-  windows: Res<Windows>,
-  ui_blocks: Res<UIBlocks>,
+  ui_blocks: Res<PointerStatus>,
+  mut event_writer: EventWriter<TileSelectedEvent>,
   tile_hover_sprite: Query<
     (&TilePos, &TileParent),
-    (With<HoveredTile>, With<OnMap>, Without<SelectedTile>),
+    (With<HoveredTile>, With<DrawOnMap>, Without<SelectedTile>),
   >,
   mut old_tile_select_sprite: Query<
     (Entity, &mut TilePos, &mut TileParent),
-    (With<OnMap>, With<SelectedTile>),
+    (With<DrawOnMap>, With<SelectedTile>),
   >,
-  old_data_layer_sprite: Query<Entity, (Without<OnMap>, With<DataLayer>, With<SelectedTile>)>,
+  old_data_layer_sprite: Query<Entity, (Without<DrawOnMap>, With<DataLayer>, With<SelectedTile>)>,
   mut events: EventReader<MouseButtonInput>,
   mut map: bevy_ecs_tilemap::MapQuery,
 ) {
@@ -234,12 +273,11 @@ pub fn select_tile(
 
   if did_click_happen {
     // double check that the mouse isn't blocked by the ui
-    let window = windows.get_primary().unwrap();
-    if let Some(mp) = window.cursor_position() {
-      if ui_blocks.is_blocked(mp) {
-        return;
-      }
+    if ui_blocks.disregard_mouse_event() {
+      return;
     }
+
+    let mut selected_tile_has_changed = false;
 
     if let Ok((pos, parent)) = tile_hover_sprite.get_single() {
       if let Ok(data_layer_entity) =
@@ -258,13 +296,16 @@ pub fn select_tile(
           // We also need to remove the old marker component from the data layer
           let e = old_data_layer_sprite.get_single().unwrap();
           commands.entity(e).remove::<SelectedTile>();
+
+          selected_tile_has_changed = true;
         }
       } else {
         // a tile has been clicked for the first time
+        selected_tile_has_changed = true;
         let (_, layer) = map.get_layer(parent.map_id, parent.layer_id).unwrap();
         commands.spawn_bundle(SelectedTileBundle {
           tile: SelectedTile,
-          map: OnMap,
+          map: DrawOnMap,
           map_pos: pos.to_owned(),
           parent: parent.to_owned(),
           sprite_bundle: SpriteBundle {
@@ -274,7 +315,11 @@ pub fn select_tile(
             },
             transform: Transform {
               scale: Vec3::new(16., 16., 0.),
-              translation: initial_map_drawing_position(&layer.settings.tile_size, pos),
+              translation: initial_map_drawing_position(
+                &layer.settings.tile_size,
+                pos,
+                constants::MAP_UI_Z_LEVEL,
+              ),
               ..Default::default()
             },
             ..Default::default()
@@ -289,21 +334,24 @@ pub fn select_tile(
           commands.entity(data_layer_entity).insert(SelectedTile);
         }
       }
+
+      if selected_tile_has_changed {
+        event_writer.send(TileSelectedEvent(Some(pos.to_owned())));
+      }
     }
   }
 }
 
-fn map_pan(time: Res<Time>, keys: Res<Input<KeyCode>>, mut camera: Query<&mut Transform, With<MainCamera>>, ui_block: Query<&crate::ui::BlockKeyInput>) {
+fn map_pan(
+  time: Res<Time>,
+  keys: Res<Input<KeyCode>>,
+  mut camera: Query<&mut Transform, With<MainCamera>>,
+) {
   const SCROLL_FACTOR: f32 = 0.35;
   const SCROLL_LIMIT_PLUS_X: f32 = 300.;
   const SCROLL_LIMIT_MINUS_X: f32 = -200.;
   const SCROLL_LIMIT_PLUS_Y: f32 = 200.;
   const SCROLL_LIMIT_MINUS_Y: f32 = -100.;
-
-  // check if the ui is intercepting keyboard events
-  if !ui_block.is_empty() {
-    return;
-  }
 
   let mut camera_transform = camera.get_single_mut().unwrap();
 
@@ -332,8 +380,16 @@ fn map_pan(time: Res<Time>, keys: Res<Input<KeyCode>>, mut camera: Query<&mut Tr
   }
 }
 
-fn zoom_map(mut scroll_events: EventReader<MouseWheel>, mut camera: Query<&mut OrthographicProjection, With<MainCamera>>) {
+fn zoom_map(
+  mut scroll_events: EventReader<MouseWheel>,
+  mut camera: Query<&mut OrthographicProjection, With<MainCamera>>,
+  is_blocked: Res<crate::ingame_ui::PointerStatus>,
+) {
   use bevy::input::mouse::MouseScrollUnit;
+
+  if is_blocked.disregard_mouse_event() {
+    return;
+  }
 
   let mut change = 0.;
 
@@ -355,10 +411,6 @@ fn zoom_map(mut scroll_events: EventReader<MouseWheel>, mut camera: Query<&mut O
   if new_scale > 0.1 && new_scale < 0.9 {
     ortho.scale = new_scale;
   }
-
-  if change != 0. {
-    dbg!(change);
-  }
 }
 
 pub struct MapPlugin;
@@ -368,9 +420,10 @@ impl Plugin for MapPlugin {
     app
       .add_plugin(LdtkPlugin)
       .insert_resource(LevelSelection::Index(0)) // Selects which ldtk level to load first
+      .add_event::<TileSelectedEvent>()
       .add_system(mapped_component)
       .add_system(tile_mouse_hover)
-      .add_system(select_tile)
+      .add_system(click_tile)
       .add_system(map_pan)
       .add_system(zoom_map)
       .register_ldtk_int_cell::<OpenTileBundle>(1)

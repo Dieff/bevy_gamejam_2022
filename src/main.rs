@@ -1,16 +1,17 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_egui::EguiPlugin;
-use ui::UIBlocks;
+use bevy_prototype_lyon::prelude::*;
 
+// for debugging
+//use bevy_inspector_egui::WorldInspectorPlugin;
+
+mod constants;
 mod map;
-mod ui;
+mod ingame_ui;
 mod utils;
 mod player;
 mod turn;
-mod wizard_lang;
-mod wizard_memory;
-mod wizard_types;
+mod spells;
 
 
 /// Used to help identify our main camera
@@ -29,27 +30,23 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ldtk_handle: asset_server.load("tiles/test2.ldtk"),
     ..Default::default()
   });
-
-  let view: ui::MemoryView = Default::default();
-  commands.spawn().insert(view);
 }
 
 
 fn main() {
   App::new()
     .add_plugins(DefaultPlugins)
-    .add_plugin(EguiPlugin)
+    .add_plugin(ShapePlugin)
+    //.add_plugin(WorldInspectorPlugin::new())
+    .add_plugin(ingame_ui::UIPlugin)
     .add_plugin(map::MapPlugin)
-    .add_event::<turn::StartPlayerTurn>()
+    .add_plugin(turn::TurnPlugin)
+    .add_plugin(spells::SpellsPlugin)
     .insert_resource(ClearColor(Color::rgb(0.4, 0.4, 0.4))) // background color
-    .insert_resource(wizard_memory::MemoryBlob::new())
-    .insert_resource(UIBlocks::default())
-    .register_ldtk_entity::<player::PlayerStartBundle>("Player1Start")
-    .register_ldtk_entity::<player::PlayerStartBundle>("Player2Start")
+    .insert_resource(spells::wizard_memory::MemoryBlob::new())
+    .register_ldtk_entity::<player::MapEntityStart>("Player1Start")
+    .register_ldtk_entity::<player::MapEntityStart>("Player2Start")
     .add_startup_system(startup)
-    .add_system(turn::do_turn)
-    .add_system(ui::memory_ui)
-    .add_system(ui::left_panel)
     .add_system(player::spawn_players_on_map)
     .run();
 }

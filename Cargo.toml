@@ -12,6 +12,17 @@ opt-level = 3
 
 [dependencies]
 bevy = {version = "0.6"}
+
+# For complex ui
+# watch https://github.com/mvlabat/bevy_egui/pull/75
 bevy_egui = "0.11.0"
+
+# for drawing shapes in code
+bevy_prototype_lyon = "0.4.0"
+
+# for loading tile maps (made with LDtk)
 bevy_ecs_tilemap = "0.5"
 bevy_ecs_ldtk = { version = "0.2", features = ["atlas"]}
+
+# for debugging
+bevy-inspector-egui = "0.8.2"

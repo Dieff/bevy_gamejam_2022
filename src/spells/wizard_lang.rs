@@ -1,6 +1,5 @@
-use std::rc::Rc;
-
-use crate::wizard_memory::MemoryLocation;
+use super::wizard_memory::MemoryLocation;
+use super::wizard_types::WizardScalarType;
 
 enum Pointer {
   Static(MemoryLocation),
@@ -9,7 +8,7 @@ enum Pointer {
 
 struct Value {
   DynamicPointer: Pointer,
-  StaticType: crate::wizard_types::WizardScalarType,
+  StaticType: WizardScalarType,
 }
 
 enum Function {
