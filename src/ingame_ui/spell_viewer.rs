@@ -5,7 +5,7 @@ use crate::spells::AvailableSpell;
 
 #[derive(Component, Default)]
 pub struct SpellViewerState {
-  selected_spell: Option<String>,
+  pub selected_spell: Option<String>,
 }
 
 pub fn spell_viewer(

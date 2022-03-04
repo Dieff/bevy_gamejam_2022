@@ -1,10 +1,12 @@
 use bevy::prelude::*;
-use bevy_ecs_tilemap::{TilePos};
+use bevy_ecs_tilemap::TilePos;
 
+use crate::level::AvailableLevel;
 use crate::map_entities::player::PlayerStatus;
+use crate::map_entities::EntityHealth;
 use crate::map_entities::MapEntityType;
-use crate::{map_entities::EntityHealth};
 use crate::utils;
+use crate::GameState;
 
 mod animation;
 pub use animation::{EnemyTurnAnimating, PlayerTurnAnimating, TurnDisplayer};
@@ -245,6 +247,7 @@ pub fn update_player_action(
   }
 }
 
+
 pub struct TurnPlugin;
 
 impl Plugin for TurnPlugin {
@@ -255,16 +258,22 @@ impl Plugin for TurnPlugin {
       .add_event::<EndTurn>()
       .add_event::<PlayerActionChosen>()
       .add_plugin(animation::TurnAnimationPlugin)
-      .add_system(start_player_choice_phase)
-      // The order here was found by trial and error to avoid a tricky race condition.
-      // TODO: clear up race condition
-      .add_system(update_player_action.before("player-move-selector"))
-      .add_system(map_ui::remove_action_arrows.before("draw-action-arrows"))
-      .add_system(map_ui::draw_action_arrows.label("draw-action-arrows"))
-      .add_system(map_ui::spawn_action_choosers.label("player-move-selector"))
-      .add_system(map_ui::despawn_action_choosers.after("player-move-selector"))
-      .add_system(map_ui::select_player_move)
-      .add_system(map_ui::select_player_attack)
+      .add_system_set(
+        SystemSet::on_update(GameState::Running)
+          .with_system(start_player_choice_phase)
+          // The order here was found by trial and error to avoid a tricky race condition.
+          // TODO: clear up race condition
+          .with_system(update_player_action.before("player-move-selector"))
+          .with_system(map_ui::remove_action_arrows.before("draw-action-arrows"))
+          .with_system(map_ui::draw_action_arrows.label("draw-action-arrows"))
+          .with_system(map_ui::spawn_action_choosers.label("player-move-selector"))
+          .with_system(map_ui::despawn_action_choosers.after("player-move-selector"))
+          .with_system(map_ui::select_player_move)
+          .with_system(map_ui::select_player_attack),
+      )
+      .add_system_set(
+        SystemSet::on_exit(GameState::Running).with_system(map_ui::despawn_ui_elements),
+      )
       // We have to run this system after the update because it is looking for removed components,
       // information about which is only retained for one frame.
       .add_system_to_stage(CoreStage::PostUpdate, execute_turn);

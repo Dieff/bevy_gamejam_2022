@@ -4,10 +4,12 @@ use bevy_egui::{egui, EguiContext, egui::Vec2 as EGVec2};
 use crate::{constants};
 use crate::turn::CompletedTurn;
 
-//use super::basic_types::{UIBlock, UIBlocks};
 use super::memory_viewer::MemoryWindowState;
 use super::spell_viewer::SpellViewerState;
 
+// TODO: the side bar sends events that are handled by other systems, rather
+// than modify the game state directly. This should use the same architecture.
+/// Draws the top of the HUD
 pub fn top_bar(
   mut commands: Commands,
   mut gui: ResMut<EguiContext>,

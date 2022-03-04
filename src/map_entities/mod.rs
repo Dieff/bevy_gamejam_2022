@@ -5,11 +5,11 @@ use bevy_ecs_tilemap::{TileParent, TilePos, TileSize};
 use crate::{
   constants,
   map::{self, DataLayer},
-  turn::EntityPendingAction,
+  GameState,
 };
 
-pub mod player;
 pub mod enemy;
+pub mod player;
 
 #[derive(Debug, Component, Clone, Copy, PartialEq, Hash)]
 pub enum PlayerType {
@@ -54,7 +54,6 @@ impl Default for EntityHealth {
   }
 }
 
-
 #[derive(Bundle, LdtkEntity)]
 pub struct MapEntityStart {
   #[from_entity_instance]
@@ -62,7 +61,6 @@ pub struct MapEntityStart {
   #[grid_coords]
   pos: GridCoords,
 }
-
 
 pub fn spawn_entities_on_map(
   mut commands: Commands,
@@ -125,6 +123,12 @@ pub fn spawn_entities_on_map(
   }
 }
 
+fn unload_entities(mut commands: Commands, map_entities: Query<Entity, With<MapEntityType>>) {
+  for e in map_entities.iter() {
+    commands.entity(e).despawn_recursive();
+  }
+}
+
 pub struct MapEntityPlugin;
 
 impl Plugin for MapEntityPlugin {
@@ -134,6 +138,7 @@ impl Plugin for MapEntityPlugin {
       .register_ldtk_entity::<MapEntityStart>("Player2Start")
       .register_ldtk_entity::<MapEntityStart>("EnemyStart")
       .add_system(spawn_entities_on_map)
-      .add_system(enemy::enemy_ai);
+      .add_system(enemy::enemy_ai)
+      .add_system_set(SystemSet::on_exit(GameState::Running).with_system(unload_entities));
   }
 }

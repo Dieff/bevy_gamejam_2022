@@ -6,14 +6,26 @@ use bevy_prototype_lyon::prelude::*;
 //use bevy_inspector_egui::WorldInspectorPlugin;
 
 mod constants;
-mod map;
 mod ingame_ui;
-mod utils;
-mod map_entities;
-mod turn;
-mod spells;
 mod level;
+mod map;
+mod map_entities;
+mod menu;
+mod spells;
+mod turn;
+mod utils;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum GameState {
+  Menu,
+  Running,
+}
+
+impl Default for GameState {
+  fn default() -> Self {
+    Self::Menu
+  }
+}
 
 /// Used to help identify our main camera
 #[derive(Component)]
@@ -33,7 +45,6 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
   });
 }
 
-
 fn main() {
   App::new()
     .add_plugins(DefaultPlugins)
@@ -45,12 +56,15 @@ fn main() {
     .add_plugin(turn::TurnPlugin)
     .add_plugin(spells::SpellsPlugin)
     .add_plugin(level::LevelPlugin)
+    .add_state(GameState::default())
+    .add_system_set(SystemSet::on_enter(GameState::Menu).with_system(menu::menu_startup))
+    .add_system_set(SystemSet::on_update(GameState::Menu).with_system(menu::quick_level_ui))
+    .add_system_set(SystemSet::on_exit(GameState::Menu).with_system(menu::menu_shutdown))
     .insert_resource(WindowDescriptor {
       title: constants::GAME_NAME.to_string(),
       ..Default::default()
     })
-    .insert_resource(ClearColor(Color::rgb(0.4, 0.4, 0.4))) // background color
-    .insert_resource(spells::wizard_memory::MemoryBlob::new())
+    .insert_resource(ClearColor(Color::rgb(0., 0., 0.))) // background color
     .add_startup_system(startup)
     .run();
 }

@@ -1,12 +1,13 @@
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_ecs_tilemap::{TileParent, TilePos};
+use bevy_ecs_tilemap::{Map, Tile, TileParent, TilePos};
 
-use super::MainCamera;
 use crate::constants;
+use crate::{GameState, MainCamera};
 //use crate::ingame_ui::{UIBlocks, BlockKeyInput};
 use crate::ingame_ui::PointerStatus;
+use crate::level::{AvailableLevel, CurrentLevel};
 use crate::utils::initial_map_drawing_position;
 
 /// Draw things on top of a map tile based on TilePos.
@@ -381,7 +382,7 @@ fn map_pan(
   }
 }
 
-fn zoom_map(
+fn map_zoom(
   mut scroll_events: EventReader<MouseWheel>,
   mut camera: Query<&mut OrthographicProjection, With<MainCamera>>,
   is_blocked: Res<crate::ingame_ui::PointerStatus>,
@@ -414,19 +415,40 @@ fn zoom_map(
   }
 }
 
+fn unload_map(
+  mut commands: Commands,
+  level_q: Query<Entity, Or<(With<Tile>, With<Map>)>>,
+  ui_bits: Query<Entity, Or<(With<SelectedTile>, With<HoveredTile>)>>,
+) {
+  commands.remove_resource::<LevelSelection>();
+  for e in level_q.iter().chain(ui_bits.iter()) {
+    commands.entity(e).despawn_recursive();
+  }
+}
+
+fn load_map(mut commands: Commands, new_level: Query<&AvailableLevel, With<CurrentLevel>>) {
+  let level = new_level.get_single().unwrap();
+
+  commands.insert_resource(LevelSelection::Index(level.ldtk_id));
+}
+
 pub struct MapPlugin;
 
 impl Plugin for MapPlugin {
   fn build(&self, app: &mut App) {
     app
       .add_plugin(LdtkPlugin)
-      .insert_resource(LevelSelection::Index(0)) // Selects which ldtk level to load first
       .add_event::<TileSelectedEvent>()
-      .add_system(mapped_component)
-      .add_system(tile_mouse_hover)
-      .add_system(click_tile)
-      .add_system(map_pan)
-      .add_system(zoom_map)
+      .add_system_set(
+        SystemSet::on_update(GameState::Running)
+          .with_system(mapped_component)
+          .with_system(tile_mouse_hover)
+          .with_system(click_tile)
+          .with_system(map_pan)
+          .with_system(map_zoom),
+      )
+      .add_system_set(SystemSet::on_enter(GameState::Running).with_system(load_map))
+      .add_system_set(SystemSet::on_exit(GameState::Running).with_system(unload_map))
       .register_ldtk_int_cell::<OpenTileBundle>(1)
       .register_ldtk_int_cell::<WallTileBundle>(2)
       .register_ldtk_int_cell::<FloorTileBundle>(3);

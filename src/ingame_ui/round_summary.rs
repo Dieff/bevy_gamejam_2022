@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
 
-use crate::level::RoundSummary;
+use crate::level::{RoundSummary, ToMenu};
 use crate::turn::CompletedTurn;
 
 pub fn round_summary(
   mut gui: ResMut<EguiContext>,
+  mut quit_event: EventWriter<ToMenu>,
   round_over_q: Query<&RoundSummary>,
   completed_turns: Query<&CompletedTurn>,
 ) {
@@ -33,7 +34,7 @@ pub fn round_summary(
         ));
 
         if ui.button("Back To Menu").clicked() {
-          dbg!("Go back to the menu");
+          quit_event.send(ToMenu);
         }
         ui.expand_to_include_x(right);
         ui.expand_to_include_y(bottom);

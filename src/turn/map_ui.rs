@@ -531,3 +531,12 @@ pub fn select_player_attack(
     }
   }
 }
+
+pub fn despawn_ui_elements(
+  mut commands: Commands,
+  elements: Query<Entity, Or<(With<MapActionChooser>, With<ActionIndicationMarker>)>>,
+) {
+  for e in elements.iter() {
+    commands.entity(e).despawn_recursive();
+  }
+}

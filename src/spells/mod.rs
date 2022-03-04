@@ -31,6 +31,8 @@ pub struct SpellsPlugin;
 
 impl Plugin for SpellsPlugin {
   fn build(&self, app: &mut App) {
-    app.add_startup_system(spawn_spells);
+    app
+      .add_startup_system(spawn_spells)
+      .insert_resource(wizard_memory::MemoryBlob::new());
   }
 }
