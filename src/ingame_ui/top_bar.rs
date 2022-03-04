@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use bevy_egui::{egui, EguiContext};
+use bevy_egui::{egui, EguiContext, egui::Vec2 as EGVec2};
 
-use crate::constants;
+use crate::{constants};
 use crate::turn::CompletedTurn;
 
 //use super::basic_types::{UIBlock, UIBlocks};
@@ -28,9 +28,19 @@ pub fn top_bar(
     .default_height(egui_height)
     .frame(top_bar_background)
     .show(gui.ctx_mut(), |ui| {
+      // add a small margin to the top of the frame
+      ui.allocate_space(EGVec2::new(0., 3.));
+
       ui.horizontal_top(|ui| {
         ui.add_space(10.);
-        ui.heading(constants::GAME_NAME);
+        ui.horizontal(|ui| {
+          ui.label(egui::RichText::new("Space").color(constants::GAME_TITLE_COLOR1).heading());
+          ui.label(egui::RichText::new("Wizard").color(constants::GAME_TITLE_COLOR2).heading());
+          ui.label(egui::RichText::new("Power").color(constants::GAME_TITLE_COLOR3).heading());
+          ui.label(egui::RichText::new("Tournament").color(constants::GAME_TITLE_COLOR4).heading());
+        });
+        //ui.heading(constants::GAME_NAME);
+
         ui.add_space(50.);
         ui.label(format!("turn {}", turns_elapsed.iter().count()));
 
@@ -60,6 +70,10 @@ pub fn top_bar(
             let (entity, _) = memory_window_state.single();
             commands.entity(entity).despawn_recursive();
           }
+        }
+
+        if ui.button("Quit").clicked() {
+          commands.spawn().insert(crate::level::RoundSummary(crate::level::RoundResult::Neutral));
         }
       });
     });

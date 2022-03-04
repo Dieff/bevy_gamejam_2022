@@ -3,8 +3,8 @@ use bevy_ecs_tilemap::TilePos;
 use bevy_egui::{egui, egui::Vec2 as EGVec2, EguiContext};
 
 use crate::constants;
-use crate::map::{DataLayer, DrawOnMap, SelectedTile};
-use crate::player::{MapEntityType, PlayerStatus, PlayerType};
+use crate::map::{DataLayer, DrawOnMap, SelectedTile, TileTemp};
+use crate::map_entities::{player::PlayerStatus, EntityHealth, MapEntityType, PlayerType};
 use crate::spells::AvailableSpell;
 use crate::turn::{
   EntityAction, EntityPendingAction, PlayerActionChosen, StartTurn, TurnStatus, TurnUIState,
@@ -14,8 +14,9 @@ type PlayerStatusQuery<'a> = (
   Entity,
   &'a TilePos,
   &'a PlayerStatus,
+  &'a EntityHealth,
   &'a MapEntityType,
-  Option<&'a EntityPendingAction>,
+  &'a EntityPendingAction,
 );
 
 type SpellList<'a> = Vec<&'a str>;
@@ -65,7 +66,7 @@ fn draw_player_status<'a>(
   spells: &SpellList,
   ui: &mut egui::Ui,
 ) -> Option<(Entity, EntityPendingAction)> {
-  let (p_entity, _, status, _, pending_action) = player_status;
+  let (p_entity, _, status, health, _, pending_action) = player_status;
   let mut return_val = None;
 
   let height = ui.available_height();
@@ -75,7 +76,7 @@ fn draw_player_status<'a>(
   draw_single_bar(
     ui,
     constants::PLAYER_MAX_HEALTH,
-    status.health,
+    health.health,
     egui::Color32::GREEN,
     egui::Color32::RED,
   )
@@ -98,11 +99,11 @@ fn draw_player_status<'a>(
 
   ui.label(egui::RichText::new("Actions").strong());
   ui.vertical(|ui| {
-    let ui_action = match pending_action.map(|j| &j.action) {
-      Some(EntityAction::Move(_)) => UIPlayerAction::Move,
-      Some(EntityAction::Wait) => UIPlayerAction::Wait,
-      Some(EntityAction::Cast(_)) => UIPlayerAction::Cast,
-      Some(EntityAction::Attack) => UIPlayerAction::Attack,
+    let ui_action = match pending_action.action {
+      EntityAction::Move(_) => UIPlayerAction::Move,
+      EntityAction::Wait => UIPlayerAction::Wait,
+      EntityAction::Cast(_) => UIPlayerAction::Cast,
+      EntityAction::Attack(_) => UIPlayerAction::Attack,
       _ => UIPlayerAction::Wait,
     };
 
@@ -121,7 +122,7 @@ fn draw_player_status<'a>(
       .inner;
 
     let mut new_spell = "".to_owned();
-    if let Some(cur_spell) = pending_action.unwrap().get_spell() {
+    if let Some(cur_spell) = pending_action.get_spell() {
       let start_index = spells
         .iter()
         .enumerate()
@@ -148,14 +149,10 @@ fn draw_player_status<'a>(
     }
 
     if selection != ui_action {
-      dbg!(&selection, ui_action);
       return_val = Some((
         p_entity,
         match selection {
-          UIPlayerAction::Attack => EntityPendingAction {
-            action: EntityAction::Attack,
-            is_ready: false,
-          },
+          UIPlayerAction::Attack => EntityPendingAction::default_attack(),
           UIPlayerAction::Cast => EntityPendingAction {
             action: EntityAction::Cast(new_spell),
             is_ready: false,
@@ -165,7 +162,7 @@ fn draw_player_status<'a>(
             is_ready: false,
           },
           UIPlayerAction::Wait => EntityPendingAction {
-            action: EntityAction::Attack,
+            action: EntityAction::Wait,
             is_ready: true,
           },
         },
@@ -183,7 +180,10 @@ pub fn left_panel(
   ui_state: Res<TurnUIState>,
   mut turn_event_writer: EventWriter<StartTurn>,
   mut cancel_event_writer: EventWriter<PlayerActionChosen>,
-  selected_tile: Query<&TilePos, (With<SelectedTile>, With<DataLayer>, Without<DrawOnMap>)>,
+  selected_tile: Query<
+    (&TilePos, &DataLayer, &TileTemp),
+    (With<SelectedTile>, With<DataLayer>, Without<DrawOnMap>),
+  >,
   player_q: Query<PlayerStatusQuery>,
   spells: Query<&AvailableSpell>,
 ) {
@@ -195,10 +195,10 @@ pub fn left_panel(
 
   let wizard = player_q
     .iter()
-    .find(|(_, _, _, kind, _)| **kind == MapEntityType::Player(PlayerType::Wizard));
+    .find(|pd| *pd.4 == MapEntityType::Player(PlayerType::Wizard));
   let warrior = player_q
     .iter()
-    .find(|(_, _, _, kind, _)| **kind == MapEntityType::Player(PlayerType::Warrior));
+    .find(|pd| *pd.4 == MapEntityType::Player(PlayerType::Warrior));
 
   let available_spells: SpellList = spells.iter().map(|s| s.name.as_str()).collect();
 
@@ -206,16 +206,17 @@ pub fn left_panel(
     .min_width(frame_width)
     .resizable(false)
     .show(gui.ctx_mut(), |ui| {
+      ui.add_space(10.);
       if let (Some(wizard), Some(warrior)) = (wizard, warrior) {
         let actions_enabled = ui_state.status == TurnStatus::PlayerChoosing;
 
         let top_text = match ui_state.status {
-          TurnStatus::PlayerChoosing => "Choose Your Actions",
-          TurnStatus::PlayerRunning => "Your Turn",
+          TurnStatus::PlayerChoosing => "Choose Your Actions...",
+          TurnStatus::PlayerRunning => "Player Turn",
           TurnStatus::EnemyRunning => "Enemy Turn",
           _ => "",
         };
-        ui.label(egui::RichText::new(top_text).heading());
+        ui.label(egui::RichText::new(top_text).strong());
         ui.horizontal(|ui| {
           ui.set_max_height(frame_height / 3.);
           ui.set_max_width(frame_width / 2.);
@@ -226,7 +227,7 @@ pub fn left_panel(
             if selected_tile
               .get_single()
               .ok()
-              .filter(|pos| *pos == warrior.1)
+              .filter(|(pos, _, _)| *pos == warrior.1)
               .is_some()
             {
               wl = wl.underline();
@@ -235,7 +236,6 @@ pub fn left_panel(
             if let Some((player_entity, action_type)) =
               draw_player_status(warrior, PlayerType::Warrior, &available_spells, ui)
             {
-              dbg!(&action_type);
               cancel_event_writer.send(PlayerActionChosen {
                 player: player_entity,
                 action_type,
@@ -249,7 +249,7 @@ pub fn left_panel(
             if selected_tile
               .get_single()
               .ok()
-              .filter(|pos| *pos == wizard.1)
+              .filter(|(pos, _, _)| *pos == wizard.1)
               .is_some()
             {
               wl = wl.underline();
@@ -272,22 +272,26 @@ pub fn left_panel(
         ));
 
         ui.vertical_centered(|ui| {
-          let go = ui.add_enabled(actions_enabled, egui::Button::new("End Turn"));
+          let can_end_turn = actions_enabled && player_q.iter().all(|pd| pd.5.is_ready);
+          let go = ui.add_enabled(can_end_turn, egui::Button::new("End Turn"));
           if go.clicked() {
             turn_event_writer.send(StartTurn(TurnStatus::PlayerRunning));
-            dbg!("execute player turn");
           }
         });
-
-        ui.separator();
-
-        if let Ok(t) = selected_tile.get_single() {
-          ui.label(format!("Tile ({}, {}) selected", t.0, t.1));
-        } else {
-          ui.label("No tile selected");
-        }
       } else {
         ui.label("Loading..");
+      }
+      ui.separator();
+      if let Ok((pos, kind, temp)) = selected_tile.get_single() {
+        ui.label(format!("Tile ({}, {}) selected", pos.0, pos.1));
+        let desc = match kind.kind {
+          crate::map::TileKind::Floor => "Ground",
+          crate::map::TileKind::Open => "Open Space",
+          crate::map::TileKind::Wall => "Solid Wall",
+        };
+        ui.label(format!("{} - {}° C", desc, temp.temp));
+      } else {
+        ui.label("No tile selected");
       }
     });
 }

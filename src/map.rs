@@ -9,9 +9,8 @@ use crate::constants;
 use crate::ingame_ui::PointerStatus;
 use crate::utils::initial_map_drawing_position;
 
-/// For things that will be drawn on a top map tile
-/// Probably paired with TilePos and TileParent
-/// Does not exist on the actual map
+/// Draw things on top of a map tile based on TilePos.
+/// Requires a a TilePos and TileParent that refer to the data layer.
 #[derive(Component, Default)]
 pub struct DrawOnMap;
 
@@ -91,11 +90,12 @@ struct Floor;
 
 #[derive(Debug, Component, Default)]
 pub struct TileTemp {
-  temp: f32,
+  pub temp: f32,
 }
 
 #[derive(Bundle, LdtkIntCell)]
 struct OpenTileBundle {
+  #[from_int_grid_cell]
   l: DataLayer,
   open: Open,
   temp: TileTemp,
@@ -103,6 +103,7 @@ struct OpenTileBundle {
 
 #[derive(Bundle, LdtkIntCell)]
 struct WallTileBundle {
+  #[from_int_grid_cell]
   l: DataLayer,
   wall: Wall,
   temp: TileTemp,
@@ -110,6 +111,7 @@ struct WallTileBundle {
 
 #[derive(Bundle, LdtkIntCell)]
 struct FloorTileBundle {
+  #[from_int_grid_cell]
   l: DataLayer,
   floor: Floor,
   temp: TileTemp,
@@ -330,7 +332,6 @@ pub fn click_tile(
         if let Ok(data_layer_entity) =
           map.get_tile_entity(pos.to_owned(), parent.map_id, parent.layer_id)
         {
-          //dbg!("bye");
           commands.entity(data_layer_entity).insert(SelectedTile);
         }
       }

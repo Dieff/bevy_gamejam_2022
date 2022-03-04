@@ -30,7 +30,6 @@ pub fn spell_viewer(
         ui.vertical(|ui| {
           for spell in spells.iter() {
             if ui.button(&spell.name).clicked() {
-              dbg!(&spell.name);
               state.selected_spell = Some(spell.name.clone());
             }
           }

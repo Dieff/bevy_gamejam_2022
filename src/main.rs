@@ -9,9 +9,10 @@ mod constants;
 mod map;
 mod ingame_ui;
 mod utils;
-mod player;
+mod map_entities;
 mod turn;
 mod spells;
+mod level;
 
 
 /// Used to help identify our main camera
@@ -40,13 +41,16 @@ fn main() {
     //.add_plugin(WorldInspectorPlugin::new())
     .add_plugin(ingame_ui::UIPlugin)
     .add_plugin(map::MapPlugin)
+    .add_plugin(map_entities::MapEntityPlugin)
     .add_plugin(turn::TurnPlugin)
     .add_plugin(spells::SpellsPlugin)
+    .add_plugin(level::LevelPlugin)
+    .insert_resource(WindowDescriptor {
+      title: constants::GAME_NAME.to_string(),
+      ..Default::default()
+    })
     .insert_resource(ClearColor(Color::rgb(0.4, 0.4, 0.4))) // background color
     .insert_resource(spells::wizard_memory::MemoryBlob::new())
-    .register_ldtk_entity::<player::MapEntityStart>("Player1Start")
-    .register_ldtk_entity::<player::MapEntityStart>("Player2Start")
     .add_startup_system(startup)
-    .add_system(player::spawn_players_on_map)
     .run();
 }
