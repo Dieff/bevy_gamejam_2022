@@ -3,7 +3,7 @@ use bevy_egui::{egui, EguiContext};
 
 use crate::{
   level::{AvailableLevel, CompletedLevel, CurrentLevel},
-  utils, GameState, MainCamera,
+  GameState, MainCamera,
 };
 
 #[derive(Component)]
@@ -15,17 +15,30 @@ pub struct MenuSprite;
 /// - Draw the characters
 pub fn menu_startup(
   mut commands: Commands,
+  assets: Res<AssetServer>,
+  windows: Res<Windows>,
   mut camera: Query<(&mut OrthographicProjection, &mut Transform), With<MainCamera>>,
 ) {
   let (mut camera_ortho, mut camera_trans) = camera.get_single_mut().unwrap();
   camera_ortho.scale = 0.5;
   camera_trans.translation = Vec3::new(0., 0., 999.);
 
-  commands.spawn_bundle(utils::new_square_sprite_bundle(
-    Color::CYAN,
-    Vec2::new(50., 50.),
-    Vec3::new(20., 20., 10.),
-  )).insert(MenuSprite);
+  let primary_window = windows.get_primary().unwrap();
+
+  commands
+    .spawn_bundle(SpriteBundle {
+      texture: assets.load("swpt_title.png"),
+      sprite: Sprite {
+        // Since it is a background, we should fit the sprite to the window
+        custom_size: Some(Vec2::new(
+          primary_window.width() / 2.,
+          primary_window.height() / 2.,
+        )),
+        ..Default::default()
+      },
+      ..Default::default()
+    })
+    .insert(MenuSprite);
 }
 
 /// Undo everything we did in menu startup
@@ -53,6 +66,15 @@ pub fn quick_level_ui(
       ui.expand_to_include_x(window.width());
       ui.expand_to_include_y(window.height());
 
+      ui.horizontal(|ui| {
+        ui.label("Made with");
+        ui.hyperlink_to("Bevy", "https://bevyengine.org/");
+        ui.label("for the first official");
+        ui.hyperlink_to("Bevy game jam.", "https://itch.io/jam/bevy-jam-1/entries");
+        ui.label("Warning: game is very WIP.")
+      });
+
+      ui.add_space(10.);
       for (level_entity, level, is_complete) in levels.iter() {
         ui.horizontal(|ui| {
           if ui.button(level.name.as_str()).clicked() {
@@ -60,9 +82,11 @@ pub fn quick_level_ui(
             commands.entity(level_entity).insert(CurrentLevel);
           }
           if is_complete.is_some() {
+            // I love using emojis in my code!
             ui.label("✔️");
           }
         });
       }
+
     });
 }

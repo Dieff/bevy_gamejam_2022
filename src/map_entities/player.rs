@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use bevy_ecs_ldtk::prelude::*;
-use bevy_ecs_tilemap::{TileParent, TilePos, TileSize};
+use bevy_ecs_tilemap::{TileParent, TilePos};
 
 use crate::{
   map::{self},

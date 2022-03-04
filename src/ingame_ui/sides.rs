@@ -4,6 +4,7 @@ use bevy_egui::{egui, egui::Vec2 as EGVec2, EguiContext};
 
 use crate::constants;
 use crate::map::{DataLayer, DrawOnMap, SelectedTile, TileTemp};
+use crate::map_entities::enemy::Enemy;
 use crate::map_entities::{player::PlayerStatus, EntityHealth, MapEntityType, PlayerType};
 use crate::spells::AvailableSpell;
 use crate::turn::{
@@ -84,7 +85,7 @@ fn draw_player_status<'a>(
   ui.add_space(10.);
 
   if let Some(magika) = status.magika {
-    ui.label("Magika: ");
+    ui.label("Mana: ");
     draw_single_bar(
       ui,
       constants::PLAYER_MAX_MAGIKA,
@@ -186,6 +187,7 @@ pub fn left_panel(
   >,
   player_q: Query<PlayerStatusQuery>,
   spells: Query<&AvailableSpell>,
+  enemies: Query<(&TilePos, &EntityHealth), With<Enemy>>,
 ) {
   const PANEL_SIZE_FACTOR: f32 = 4.;
 
@@ -290,6 +292,18 @@ pub fn left_panel(
           crate::map::TileKind::Wall => "Solid Wall",
         };
         ui.label(format!("{} - {}° C", desc, temp.temp));
+        if let Some(e) = enemies.iter().find(|(epos, ..)| *epos == pos) {
+          ui.label(egui::RichText::new("Enemy").strong());
+          ui.add_space(10.);
+          ui.label("Health");
+          draw_single_bar(
+            ui,
+            constants::PLAYER_MAX_HEALTH,
+            e.1.health,
+            egui::Color32::RED,
+            egui::Color32::DARK_RED,
+          );
+        }
       } else {
         ui.label("No tile selected");
       }

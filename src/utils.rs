@@ -58,12 +58,14 @@ pub fn adjust_tile_pos(pos: &TilePos, adjustment: (i32, i32)) -> TilePos {
   )
 }
 
+/// Since entities can't move diagonally, just add the dx and dy
+pub fn tile_distance(a: &TilePos, b: &TilePos) -> u32 {
+  ((b.0 as i32 - a.0 as i32).abs() + (b.1 as i32 - a.1 as i32)).abs() as u32
+}
+
+/// Used to draw arrows
 pub fn euclidean_tile_distance(a: &TilePos, b: &TilePos) -> f32 {
   let dx = a.0.abs_diff(b.0);
   let dy = a.1.abs_diff(b.1);
   (dx.pow(2) as f32 + dy.pow(2) as f32).sqrt()
-}
-
-pub fn tile_distance(a: &TilePos, b: &TilePos) -> u32 {
-  ((b.0 as i32 - a.0 as i32).abs() + (b.1 as i32 - a.1 as i32)).abs() as u32
 }

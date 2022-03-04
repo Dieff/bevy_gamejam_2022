@@ -25,4 +25,4 @@ bevy_ecs_tilemap = "0.5"
 bevy_ecs_ldtk = { version = "0.2", features = ["atlas"]}
 
 # for debugging
-bevy-inspector-egui = "0.8.2"
+#bevy-inspector-egui = "0.8.2"

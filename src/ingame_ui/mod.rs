@@ -7,7 +7,6 @@ pub mod basic_types;
 pub use basic_types::BlockKeyInput;
 
 use self::{memory_viewer::MemoryWindowState, spell_viewer::SpellViewerState};
-mod entity_viewer;
 mod memory_viewer;
 mod round_summary;
 mod sides;

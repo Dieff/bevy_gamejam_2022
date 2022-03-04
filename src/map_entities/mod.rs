@@ -62,6 +62,8 @@ pub struct MapEntityStart {
   pos: GridCoords,
 }
 
+// TODO: I think this could all be handled automatically by `bevy_ecs_ldtk` if I spent more time
+// working out how to use it's macros.
 pub fn spawn_entities_on_map(
   mut commands: Commands,
   entity_start: Query<(&GridCoords, &MapEntityType), Added<MapEntityType>>,
@@ -79,7 +81,7 @@ pub fn spawn_entities_on_map(
               parent: tile_parent.to_owned(),
               map_entity_type: entity_type.to_owned(),
               sprite: crate::utils::new_square_sprite_bundle(
-                Color::rgb(1., 1., 1.),
+                Color::rgb(65./255., 163./255., 0.),
                 Vec2::new(16., 16.),
                 crate::utils::initial_map_drawing_position(
                   &TileSize(16., 16.),

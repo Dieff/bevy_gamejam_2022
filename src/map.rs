@@ -1,7 +1,7 @@
 use bevy::input::mouse::{MouseButtonInput, MouseWheel};
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
-use bevy_ecs_tilemap::{Map, Tile, TileParent, TilePos};
+use bevy_ecs_tilemap::{Layer, Map, MapQuery, TileParent, TilePos};
 
 use crate::constants;
 use crate::{GameState, MainCamera};
@@ -348,11 +348,21 @@ fn map_pan(
   time: Res<Time>,
   keys: Res<Input<KeyCode>>,
   mut camera: Query<&mut Transform, With<MainCamera>>,
+  layers: Query<&Layer>,
 ) {
-  const SCROLL_FACTOR: f32 = 0.35;
-  const SCROLL_LIMIT_PLUS_X: f32 = 300.;
+  let (scroll_limit_plus_x, scroll_limit_plus_y) = layers
+    .iter()
+    .next()
+    .map(|l| {
+      (
+        (l.settings.tile_size.0 * l.settings.chunk_size.0 as f32 * l.settings.map_size.0 as f32),
+        (l.settings.tile_size.1 * l.settings.chunk_size.1 as f32 * l.settings.map_size.1 as f32),
+      )
+    })
+    .map(|(x_size, y_size)| (x_size * 1.5, y_size * 1.5))
+    .unwrap_or((300., 200.));
+
   const SCROLL_LIMIT_MINUS_X: f32 = -200.;
-  const SCROLL_LIMIT_PLUS_Y: f32 = 200.;
   const SCROLL_LIMIT_MINUS_Y: f32 = -100.;
 
   let mut camera_transform = camera.get_single_mut().unwrap();
@@ -360,24 +370,24 @@ fn map_pan(
   let mut scroll_x: f32 = 0.;
   let mut scroll_y: f32 = 0.;
   if keys.pressed(KeyCode::Left) || keys.pressed(KeyCode::A) {
-    scroll_x = time.delta().as_millis() as f32 * SCROLL_FACTOR * -1.;
+    scroll_x = time.delta().as_millis() as f32 * constants::MAP_SCROLL_FACTOR * -1.;
   }
   if keys.pressed(KeyCode::Right) || keys.pressed(KeyCode::D) {
-    scroll_x = time.delta().as_millis() as f32 * SCROLL_FACTOR;
+    scroll_x = time.delta().as_millis() as f32 * constants::MAP_SCROLL_FACTOR;
   }
   if keys.pressed(KeyCode::Up) || keys.pressed(KeyCode::W) {
-    scroll_y = time.delta().as_millis() as f32 * SCROLL_FACTOR;
+    scroll_y = time.delta().as_millis() as f32 * constants::MAP_SCROLL_FACTOR;
   }
   if keys.pressed(KeyCode::Down) || keys.pressed(KeyCode::S) {
-    scroll_y = time.delta().as_millis() as f32 * SCROLL_FACTOR * -1.;
+    scroll_y = time.delta().as_millis() as f32 * constants::MAP_SCROLL_FACTOR * -1.;
   }
 
   let new_camera_x = camera_transform.translation.x + scroll_x.round();
-  if new_camera_x > SCROLL_LIMIT_MINUS_X && new_camera_x < SCROLL_LIMIT_PLUS_X {
+  if new_camera_x > SCROLL_LIMIT_MINUS_X && new_camera_x < scroll_limit_plus_x {
     camera_transform.translation.x = new_camera_x;
   }
   let new_camera_y = camera_transform.translation.y + scroll_y.round();
-  if new_camera_y > SCROLL_LIMIT_MINUS_Y && new_camera_y < SCROLL_LIMIT_PLUS_Y {
+  if new_camera_y > SCROLL_LIMIT_MINUS_Y && new_camera_y < scroll_limit_plus_y {
     camera_transform.translation.y = new_camera_y;
   }
 }
@@ -417,19 +427,59 @@ fn map_zoom(
 
 fn unload_map(
   mut commands: Commands,
-  level_q: Query<Entity, Or<(With<Tile>, With<Map>)>>,
   ui_bits: Query<Entity, Or<(With<SelectedTile>, With<HoveredTile>)>>,
+  mut mq: MapQuery,
+  poses: Query<Entity, With<TilePos>>,
+  parents: Query<&TileParent>
 ) {
   commands.remove_resource::<LevelSelection>();
-  for e in level_q.iter().chain(ui_bits.iter()) {
+  for e in ui_bits.iter().chain(poses.iter()) {
     commands.entity(e).despawn_recursive();
+  }
+
+
+  let mut map_ids = std::collections::HashSet::new();
+  for p in parents.iter() {
+    map_ids.insert(p.map_id);
+  }
+  for map_id in map_ids {
+    mq.despawn(&mut commands, map_id);
   }
 }
 
 fn load_map(mut commands: Commands, new_level: Query<&AvailableLevel, With<CurrentLevel>>) {
   let level = new_level.get_single().unwrap();
-
   commands.insert_resource(LevelSelection::Index(level.ldtk_id));
+}
+
+/// Set a reasonable transform.translation value for the main camera
+/// when the map loads. Of course, the user can pan the map later.
+fn set_initial_map_camera(
+  has_map_loaded: Query<&Map, Added<Map>>,
+  layers: Query<&Layer>,
+  mut camera: Query<&mut Transform, With<MainCamera>>,
+) {
+  if has_map_loaded.is_empty() {
+    return;
+  }
+
+  // The camera transform.translation will be set to 0,0 when the map loads
+  let mut camera = camera.get_single_mut().unwrap();
+
+  let layer = layers.iter().next().unwrap();
+
+  let dim_x = layer.settings.tile_size.0
+    * layer.settings.chunk_size.0 as f32
+    * layer.settings.map_size.0 as f32;
+  let dim_y = layer.settings.tile_size.1
+    * layer.settings.chunk_size.1 as f32
+    * layer.settings.map_size.1 as f32;
+
+  let translation_up = dim_y / 4.;
+  let translation_right = dim_x / 4.;
+
+  camera.translation.x = translation_up;
+  camera.translation.y = translation_right;
 }
 
 pub struct MapPlugin;
@@ -445,7 +495,8 @@ impl Plugin for MapPlugin {
           .with_system(tile_mouse_hover)
           .with_system(click_tile)
           .with_system(map_pan)
-          .with_system(map_zoom),
+          .with_system(map_zoom)
+          .with_system(set_initial_map_camera),
       )
       .add_system_set(SystemSet::on_enter(GameState::Running).with_system(load_map))
       .add_system_set(SystemSet::on_exit(GameState::Running).with_system(unload_map))

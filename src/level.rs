@@ -23,7 +23,7 @@ impl From<&(&'static str, usize)> for AvailableLevel {
 
 // TODO: in an ideal world, this information would be stored seperately
 pub fn level_startup(mut commands: Commands) {
-  [("Test Level", 0)].iter().for_each(|d| {
+  [("Square Level", 2), ("Watery Level", 0), ("Bridge Level", 1)].iter().for_each(|d| {
     let av = AvailableLevel::from(d);
     commands.spawn().insert(av);
   })

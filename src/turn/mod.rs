@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::TilePos;
 
-use crate::level::AvailableLevel;
-use crate::map_entities::player::PlayerStatus;
-use crate::map_entities::EntityHealth;
-use crate::map_entities::MapEntityType;
+use crate::constants;
+use crate::map_entities::{player::PlayerStatus, EntityHealth, MapEntityType};
 use crate::utils;
 use crate::GameState;
 
@@ -59,12 +57,6 @@ pub struct EntityPendingAction {
 }
 
 impl EntityPendingAction {
-  pub fn wait() -> Self {
-    Self {
-      action: EntityAction::Wait,
-      is_ready: true,
-    }
-  }
   pub fn is_move(&self) -> bool {
     if let EntityAction::Move(_) = self.action {
       true
@@ -122,7 +114,6 @@ pub enum TurnStatus {
   PlayerRunning,
   EnemyRunning,
   PlayerChoosing,
-  None,
 }
 
 /// Event used when we need to execute a new turn
@@ -177,7 +168,7 @@ pub fn execute_turn(
         has_enemy_turn_ended
       }
     })
-    .for_each(|(mut pos, _, mut action)| {
+    .for_each(|(mut pos, entity_type, mut action)| {
       match action.action {
         EntityAction::Move((_, end)) => {
           pos.0 = end.0;
@@ -189,9 +180,18 @@ pub fn execute_turn(
           enemy_position: target_pos,
           ..
         }) => {
-          assert!(utils::tile_distance(&new_pos, &target_pos) == 1);
-          if let Ok(mut health) = health.get_mut(target_entity) {
-            health.health -= 10.;
+          // TODO: sometimes this fails
+          if utils::tile_distance(&new_pos, &target_pos) == 1 {
+            // Todo: the damage amount should be contained in `PendingAttack`
+            let damage = match entity_type {
+              &MapEntityType::Enemy => constants::ENEMY_ATTACK_DAMAGE,
+              &MapEntityType::Player(_) => constants::PLAYER_ATTACK_DAMAGE,
+              _ => 0.,
+            };
+
+            if let Ok(mut health) = health.get_mut(target_entity) {
+              health.health -= damage;
+            }
           }
           pos.0 = new_pos.0;
           pos.1 = new_pos.1;
@@ -246,7 +246,6 @@ pub fn update_player_action(
     commands.entity(*player).insert(new_action.to_owned());
   }
 }
-
 
 pub struct TurnPlugin;
 

@@ -478,8 +478,6 @@ pub fn select_player_attack(
   select_events: Query<&TilePos, (Added<SelectedTile>, Changed<SelectedTile>)>,
   select_markers: Query<(&MapActionChooser, &TilePos, &PlayerAttackSelect)>,
   player: Query<(Entity, &MapEntityType, &TileParent, &TilePos), With<PlayerStatus>>,
-  tiles: Query<(&DataLayer)>,
-  mut map_q: MapQuery,
 ) {
   for tile_pos in select_events.iter() {
     for (action_chooser, marker_pos, pas) in select_markers.iter() {

@@ -15,15 +15,15 @@ pub const GAME_TITLE_COLOR2: Color32 = Color32::from_rgb(192, 0, 245);
 pub const GAME_TITLE_COLOR3: Color32 = Color32::from_rgb(196, 2, 2);
 pub const GAME_TITLE_COLOR4: Color32 = Color32::from_rgb(10, 117, 0);
 
-
 // Player data
 pub const PLAYER_MAX_HEALTH: f32 = 100.;
 pub const PLAYER_MAX_MAGIKA: f32 = 100.;
 pub const PLAYER_DEFAULT_MOVE_SPEED: u32 = 4;
+pub const PLAYER_ATTACK_DAMAGE: f32 = 50.;
 
 // Enemy data
-
-
+pub const ENEMY_DEFAULT_MOVE_SPEED: u32 = 3;
+pub const ENEMY_ATTACK_DAMAGE: f32 = 10.;
 
 // Z levels
 // map tiles are drawn at z level 1.
@@ -36,9 +36,8 @@ pub const TOP_BAR_MIN_SIZE: f32 = 30.;
 pub const TOP_BAR_DESIRED_SIZE: f32 = 0.1;
 
 // other
-// don't change this unless the ldtk maps are updated
-pub const TILE_SIZE: f32 = 16.;
-
+pub const TILE_SIZE: f32 = 16.; // don't change unless LDtk maps are updated
+// how many seconds the turn animation lasts
 pub const TURN_ANIMATION_DURATION: f32 = 1.;
-
 pub const GAME_NAME: &'static str = "Space Wizard Power Tournament";
+pub const MAP_SCROLL_FACTOR: f32 = 0.35;

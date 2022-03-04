@@ -9,6 +9,7 @@ use crate::turn::{
   EnemyTurnAnimating, EntityAction, EntityPendingAction, PendingAttack, TurnDisplayer,
 };
 use crate::utils;
+use crate::constants;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum EnemyAIType {
@@ -29,7 +30,7 @@ impl Default for Enemy {
   fn default() -> Self {
     Self {
       ai_type: EnemyAIType::AttackClosest,
-      speed: 3,
+      speed: constants::ENEMY_DEFAULT_MOVE_SPEED,
     }
   }
 }
